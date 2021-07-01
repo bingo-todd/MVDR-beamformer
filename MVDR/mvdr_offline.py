@@ -113,6 +113,7 @@ class MVDR:
     def filter(self, x, azi, plot_spatial_rp=False, spatial_rp_path=None):
         """
         """
+        x = np.pad(x, [[self.frame_len, self.frame_len], [0, 0]])
         x_stft = fft.cal_stft(
             x, frame_len=self.frame_len, frame_shift=self.frame_shift)
         n_frame, n_freq_bin, n_chann = x_stft.shape
@@ -136,7 +137,7 @@ class MVDR:
             norm_win=True)
         return x_mvdr[:, 0][self.frame_len:-self.frame_len]
 
-    def plot_spatial_rp(self, azi, R_bins=None, f=1e3,
+    def plot_spatial_rp(self, azi, init_R_bins=False, f=1e3,
                         azi_left=-90, azi_right=90, azi_step=5,
                         fig_path=None):
         """
@@ -144,7 +145,9 @@ class MVDR:
         azi_all = np.arange(azi_left, azi_right+azi_step, azi_step)
         n_azi = azi_all.shape[0]
 
-        if R_bins is None:
+        if not init_R_bins:
+            R_bins = self.R_bins
+        else:
             steer_vector = self.cal_steer_vector(azi)
             R_bins = \
                 self.cal_correlation_matrix(steer_vector[np.newaxis, :, :])
