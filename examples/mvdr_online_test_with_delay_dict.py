@@ -81,23 +81,23 @@ def test2(alpha):
         mvdr_src1.run(mix[frame_slice], src1_azi)
         mvdr_src2.run(mix[frame_slice], src2_azi)
 
-        if np.mod(frame_i, 20) == 0:
+        if np.mod(frame_i, 1) == 0:
             rp_src1_all[frame_i] = \
                 mvdr_src1.plot_spatial_rp(src1_azi, init_R_bins=True)
             rp_src2_all[frame_i] = \
                 mvdr_src2.plot_spatial_rp(src2_azi, init_R_bins=True)
 
-            fig, ax = plot_tools.subplots(3, 2)
-            ax[0, 0].plot(record_1[frame_len:][frame_slice])
-            ax[0, 0].set_ylim([-amp_max, amp_max])
-            ax[0, 1].plot(record_2[frame_len:][frame_slice])
-            ax[0, 1].set_ylim([-amp_max, amp_max])
-            ax[1, 0].plot(mix[frame_slice])
-            ax[1, 0].set_ylim([-amp_max, amp_max])
-            ax[2, 0].plot(rp_src1_all[frame_i])
-            ax[2, 1].plot(rp_src2_all[frame_i])
-            fig.savefig(f'{eg_dir}/frame_{frame_i:0>4}.png')
-            plt.close(fig)
+            # fig, ax = plot_tools.subplots(3, 2)
+            # ax[0, 0].plot(record_1[frame_len:][frame_slice])
+            # ax[0, 0].set_ylim([-amp_max, amp_max])
+            # ax[0, 1].plot(record_2[frame_len:][frame_slice])
+            # ax[0, 1].set_ylim([-amp_max, amp_max])
+            # ax[1, 0].plot(mix[frame_slice])
+            # ax[1, 0].set_ylim([-amp_max, amp_max])
+            # ax[2, 0].plot(rp_src1_all[frame_i])
+            # ax[2, 1].plot(rp_src2_all[frame_i])
+            # fig.savefig(f'{eg_dir}/frame_{frame_i:0>4}.png')
+            # plt.close(fig)
 
     src1_enhanced = mvdr_src1.get_output()
     src1_enhanced = src1_enhanced[frame_len:-frame_len]
