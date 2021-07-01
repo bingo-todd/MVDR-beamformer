@@ -20,7 +20,7 @@ def test1(azi, alpha):
     fs = 16000
     mvdr = MVDR(mic_dist, frame_len, frame_shift, fs, alpha=alpha)
     mvdr.plot_spatial_response(
-        azi=azi,
+        azi=azi, init_R_bins=True,
         fig_path=f'{eg_dir}/spatial_response-{azi}-{alpha:.2e}.png')
 
     delay_record = []
@@ -54,10 +54,10 @@ def test2(alpha):
 
     mix_len = np.min([record_1.shape[0], record_2.shape[0]])
     mix = record_1[:mix_len, :]+record_2[:mix_len, :]
+    wav_tools.write(mix, fs, f'{eg_dir}mix.wav')
+
     mix = np.pad(mix, [[frame_len, frame_len], [0, 0]])
     mix_len = mix.shape[0]
-
-    wav_tools.write(mix, fs, f'{eg_dir}mix.wav')
 
     mic_dist = [0, 0.18]
     fs = 16000
@@ -73,17 +73,17 @@ def test2(alpha):
         frame_start = frame_i*frame_shift
         frame_end = frame_start + frame_len
         frame_slice = slice(frame_start, frame_end)
-        mvdr_src1.run(mix[frame_slice], -20)
-        mvdr_src2.run(mix[frame_slice], 20)
+        mvdr_src1.run(mix[frame_slice], src1_azi)
+        mvdr_src2.run(mix[frame_slice], src2_azi)
 
         if np.mod(frame_i, 20) == 0:
             mvdr_src1.plot_spatial_rp(
-                src1_azi,
+                src1_azi, init_R_bins=True,
                 fig_path=(f'{eg_dir}/'
                           + '-'.join(('spatial_rp', 'src1', f'{suffix}',
                                       f'{frame_i:0>4d}', '.png'))))
             mvdr_src1.plot_spatial_rp(
-                src2_azi,
+                src2_azi, init_R_bins=True,
                 fig_path=(f'{eg_dir}/'
                           + '-'.join(('spatial_rp', 'src2', f'{suffix}',
                                       f'{frame_i:0>4d}', '.png'))))

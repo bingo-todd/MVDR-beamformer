@@ -11,8 +11,7 @@ class MVDR:
     """
     """
     def __init__(self, mic_dist, frame_len, frame_shift, fs, c=343,
-                 init_azi=0, delay_dict_path=None, phase_delay_dict_path=None,
-                 decay_coef=1, alpha=1e-6):
+                 delay_dict_path=None, decay_coef=1, alpha=1e-6):
         """
         Args:
             mic_dist: distances between adjcent mics, in shape of [n_mic],
@@ -20,10 +19,7 @@ class MVDR:
             frame_len, frame_shift: params of fft
             fs: sample frequency
             c: sound speed, defwin_normault to 343m/s
-            init_azi: init look direction of beamformer
             delay_dict_path: pkl file path, which contain {azi: delays}
-            phase_delay_dict_path: pkl file path, which contain
-                {azi: phase_delays}
             decay_coef: scalar, 0~1, multiplied to previous R_bins to
                 weight recent signal more
             alpha: weight of eye matrix added to correlation matrix
@@ -48,12 +44,6 @@ class MVDR:
                 delay_dict = pickle.load(f)
         self.delay_dict = delay_dict
 
-        phase_delay_dict = None
-        if phase_delay_dict_path is not None:
-            with open(phase_delay_dict_path, 'rb') as f:
-                phase_delay_dict = pickle.load(f)
-        self.phase_delay_dict = phase_delay_dict
-
         self.frames_enhanced = []
 
         self.c = c  # sound seed
@@ -63,10 +53,7 @@ class MVDR:
         self.EPS = 1e-20
 
         self.frame_count = 0  # fft frame counts
-
-        steer_vector_tar = self.cal_steer_vector(init_azi)
-        self.R_bins = \
-            self.cal_correlation_matrix(steer_vector_tar[np.newaxis, :, :])
+        self.R_bins = None
 
     def cal_delays(self, azi):
         """ given DOA, calculate delay of each mic(use mic0 as ref):
@@ -84,15 +71,12 @@ class MVDR:
     def cal_steer_vector(self, azi):
         """
         """
-        if self.phase_delay_dict is not None:
-            phase_delays = self.phase_delay_dict[f'{int(azi)}']
-        else:
-            # time delays
-            delays = self.cal_delays(azi)
-            # phase delays, in shape of [n_freq_bin, n_mic]
-            phase_delays =\
-                np.exp(1j*self.angular_freq_valid[:, np.newaxis]
-                       * delays[np.newaxis, :])
+        # time delays
+        delays = self.cal_delays(azi)
+        # phase delays, in shape of [n_freq_bin, n_mic]
+        phase_delays =\
+            np.exp(1j*self.angular_freq_valid[:, np.newaxis]
+                   * delays[np.newaxis, :])
         # amplitude normalization
         steer_vector = \
             (phase_delays
@@ -155,13 +139,14 @@ class MVDR:
             # update R_bins
             R_bins_delta = self.cal_correlation_matrix(frame_stft)
             if self.frame_count == 0:
-                R_bins_pre = self.R_bins
+                self.R_bins = R_bins_delta
             elif self.frame_count > 0:
-                R_bins_pre = self.frame_count*self.R_bins
+                self.R_bins =\
+                    ((self.frame_count*self.R_bins+R_bins_delta)
+                     / (self.frame_count+1))
             else:
                 raise Exception()
 
-            self.R_bins = ((R_bins_pre+R_bins_delta)/(self.frame_count+1))
             self.frame_count = self.frame_count+1
 
         if plot_spatial_rp:
@@ -203,35 +188,47 @@ class MVDR:
         x = x/coefs
         return x
 
-    def plot_spatial_rp(self, azi, R_bins=None, f=1e3, fig_path=None):
+    def plot_spatial_rp(self, azi, init_R_bins=False, f=1e3,
+                        azi_left=-90, azi_right=90, azi_step=5,
+                        fig_path=None):
         """
         """
-        if R_bins is None:
+        azi_all = np.arange(azi_left, azi_right+azi_step, azi_step)
+        n_azi = azi_all.shape[0]
+
+        if not init_R_bins:
             R_bins = self.R_bins
+        else:
+            steer_vector = self.cal_steer_vector(azi)
+            R_bins = \
+                self.cal_correlation_matrix(steer_vector[np.newaxis, :, :])
+
         h_bins = self.cal_h(R_bins, azi)
 
         freq_bin_i = np.argmin(np.abs(self.freq_bins_valid-f))
         f = self.freq_bins_valid[freq_bin_i]
 
-        rp = np.zeros(181)  # response power
-        azi_all = np.arange(-90, 91, 1)
-        freq_bin_i = 20
-        for i in range(181):
+        rp = np.zeros(n_azi)  # response power
+        for i in range(n_azi):
             tmp_steer_vector = self.cal_steer_vector(azi_all[i])
             tmp_R_bins = \
                 self.cal_correlation_matrix(tmp_steer_vector[np.newaxis, :, :])
-            tmp_R = tmp_R_bins[freq_bin_i]
-            tmp_R = tmp_R/np.mean(np.diag(tmp_R))
             # spatial scan
             rp[i] = \
                 np.real(
                     np.matmul(
-                        np.matmul(np.conj(h_bins[freq_bin_i]), tmp_R),
+                        np.matmul(
+                            np.conj(h_bins[freq_bin_i]),
+                            tmp_R_bins[freq_bin_i]),
                         h_bins[freq_bin_i]))
+            rp[i] = rp[i]/np.max(np.real(np.diag(tmp_R_bins[freq_bin_i])))
 
-        fig, ax = plot_tools.subplots(1, 1)
-        ax.plot(azi_all, rp)
-        # ax.set_yscale('log')
-        ax.set_title(f'f: {f} Hz')
-        fig.savefig(fig_path)
-        plt.close()
+        if fig_path is not None:
+            fig, ax = plot_tools.subplots(1, 1)
+            ax.plot(azi_all, rp)
+            # ax.set_yscale('log')
+            ax.set_title(f'f: {f} Hz')
+            fig.savefig(fig_path)
+            plt.close()
+
+        return rp
