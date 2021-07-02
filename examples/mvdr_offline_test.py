@@ -20,8 +20,7 @@ def test(azi, alpha):
     fs = 16000
     mvdr = MVDR(mic_dist, frame_len, frame_shift, fs, alpha=alpha)
     mvdr.plot_spatial_rp(
-        azi=azi, init_R_bins=True,
-        fig_path=f'{eg_dir}/spatial_response-{azi}-{alpha:.2e}.png')
+        azi=azi, fig_path=f'{eg_dir}/spatial_response-{azi}-{alpha:.2e}.png')
 
     delay_record = []
     for azi in range(-90, 91, 1):

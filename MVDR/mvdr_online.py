@@ -87,13 +87,16 @@ class MVDR:
             phase_delays =\
                 np.exp(1j*self.angular_freq_valid[:, np.newaxis]
                        * delays[np.newaxis, :])
-            # amplitude normalization
-            steer_vector = \
-                (phase_delays
-                 / np.sqrt(
-                     np.sum(
-                         phase_delays*np.conj(phase_delays), axis=1,
-                         keepdims=True)))
+            if False:
+                # amplitude normalization
+                steer_vector = \
+                    (phase_delays
+                     / np.sqrt(
+                         np.sum(
+                             phase_delays*np.conj(phase_delays), axis=1,
+                             keepdims=True)))
+            else:
+                steer_vector = phase_delays
         return steer_vector
 
     def cal_correlation_matrix(self, x_stft):
@@ -185,7 +188,6 @@ class MVDR:
         x = np.zeros(x_len)
         coefs = np.zeros(x_len)
         window_square = self.window**2
-        print(window_square.shape)
         for frame_i in range(n_frame):
             frame_start = frame_i*self.frame_shift
             frame_end = frame_start+self.frame_len
@@ -231,11 +233,15 @@ class MVDR:
                             np.conj(h_bins[freq_bin_i]),
                             tmp_R_bins[freq_bin_i]),
                         h_bins[freq_bin_i]))
-            rp[i] = rp[i]/np.max(np.real(np.diag(tmp_R_bins[freq_bin_i])))
+            rp[i] = rp[i]/np.real(np.diag(tmp_R_bins[freq_bin_i])[0])
 
         if fig_path is not None:
             fig, ax = plot_tools.subplots(1, 1)
             ax.plot(azi_all, rp)
+            rp_azi = rp[np.nonzero(azi_all == azi)[0][0]]
+            ax.plot([azi, azi], [0, rp_azi])
+            ax.plot(azi, rp_azi, 'x')
+            ax.text(azi, rp_azi, f'[{azi}, {rp_azi:.2f}]')
             # ax.set_yscale('log')
             ax.set_title(f'f: {f} Hz')
             fig.savefig(fig_path)
