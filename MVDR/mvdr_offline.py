@@ -11,7 +11,8 @@ class MVDR:
     """
     """
     def __init__(self, mic_dist, frame_len, frame_shift, fs, c=343,
-                 delay_dict_path=None, alpha=1e-6):
+                 delay_dict_path=None, steer_vector_dict_path=None,
+                 alpha=1e-6):
         """
         Args:
             mic_dist: distances between adjcent mics, in shape of [n_mic],
@@ -42,6 +43,12 @@ class MVDR:
                 delay_dict = pickle.load(f)
         self.delay_dict = delay_dict
 
+        steer_vector_dict = None
+        if steer_vector_dict_path is not None:
+            with open(steer_vector_dict_path, 'rb') as f:
+                steer_vector_dict = pickle.load(f)
+        self.steer_vector_dict = steer_vector_dict
+
         self.c = c  # sound seed
         self.alpha = alpha
         self.EPS = 1e-20
@@ -62,19 +69,22 @@ class MVDR:
     def cal_steer_vector(self, azi):
         """
         """
-        # time delays
-        delays = self.cal_delays(azi)
-        # phase delays, in shape of [n_freq_bin, n_mic]
-        phase_delays =\
-            np.exp(1j*self.angular_freq_valid[:, np.newaxis]
-                   * delays[np.newaxis, :])
-        # amplitude normalization
-        steer_vector = \
-            (phase_delays
-             / np.sqrt(
-                 np.sum(
-                     phase_delays*np.conj(phase_delays), axis=1,
-                     keepdims=True)))
+        if self.steer_vector_dict is not None:
+            steer_vector = self.steer_vector_dict[f'{azi}']
+        else:
+            # time delays
+            delays = self.cal_delays(azi)
+            # phase delays, in shape of [n_freq_bin, n_mic]
+            phase_delays =\
+                np.exp(1j*self.angular_freq_valid[:, np.newaxis]
+                       * delays[np.newaxis, :])
+            # amplitude normalization
+            steer_vector = \
+                (phase_delays
+                 / np.sqrt(
+                     np.sum(
+                         phase_delays*np.conj(phase_delays), axis=1,
+                         keepdims=True)))
         return steer_vector
 
     def cal_correlation_matrix(self, x_stft):
@@ -137,7 +147,7 @@ class MVDR:
             norm_win=True)
         return x_mvdr[:, 0][self.frame_len:-self.frame_len]
 
-    def plot_spatial_rp(self, azi, init_R_bins=False, f=1e3,
+    def plot_spatial_rp(self, azi, R_bins=None, f=1e3,
                         azi_left=-90, azi_right=90, azi_step=5,
                         fig_path=None):
         """
@@ -145,9 +155,7 @@ class MVDR:
         azi_all = np.arange(azi_left, azi_right+azi_step, azi_step)
         n_azi = azi_all.shape[0]
 
-        if not init_R_bins:
-            R_bins = self.R_bins
-        else:
+        if R_bins is None:
             steer_vector = self.cal_steer_vector(azi)
             R_bins = \
                 self.cal_correlation_matrix(steer_vector[np.newaxis, :, :])

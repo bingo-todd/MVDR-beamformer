@@ -9,7 +9,7 @@ sys.path.append('../MVDR')
 from mvdr_offline import MVDR  # noqa:E402
 
 
-eg_dir = 'offline'
+eg_dir = 'offline_with_steer_vector_dict'
 os.makedirs(eg_dir, exist_ok=True)
 
 
@@ -18,18 +18,21 @@ def test(azi, alpha):
     frame_len = 320
     frame_shift = 160
     fs = 16000
-    mvdr = MVDR(mic_dist, frame_len, frame_shift, fs, alpha=alpha)
+    mvdr = MVDR(
+        mic_dist, frame_len, frame_shift, fs, alpha=alpha,
+        steer_vector_dict_path='steer_vector_dict-Anechoic.pkl')
+
     mvdr.plot_spatial_rp(
-        azi=azi, init_R_bins=True,
+        azi=azi,
         fig_path=f'{eg_dir}/spatial_response-{azi}-{alpha:.2e}.png')
 
     delay_record = []
-    for azi in range(-90, 91, 1):
+    for azi in range(-90, 95, 5):
         delays = mvdr.cal_delays(azi)
         delay_record.append(delays[1])
 
     fig, ax = plot_tools.subplots(1, 1)
-    ax.plot(np.arange(-90, 91, 1), delay_record)
+    ax.plot(np.arange(-90, 95, 5), delay_record)
     fig.savefig(f'{eg_dir}/delay.png')
     plt.close()
 
@@ -46,7 +49,6 @@ def test2(alpha):
 
     mix_len = np.min([record1.shape[0], record2.shape[0]])
     mix = record1[:mix_len, :]+record2[:mix_len, :]
-
     wav_tools.write(mix, fs, f'{eg_dir}/mix.wav')
 
     mix = np.pad(mix, [[frame_len, frame_len], [0, 0]])
@@ -54,7 +56,8 @@ def test2(alpha):
 
     mic_dist = [0, 0.18]
     fs = 16000
-    mvdr = MVDR(mic_dist, frame_len, frame_shift, fs, alpha=alpha)
+    mvdr = MVDR(mic_dist, frame_len, frame_shift, fs, alpha=alpha,
+                steer_vector_dict_path='steer_vector_dict-Anechoic.pkl')
     src1_enhanced = mvdr.filter(
         mix, -20, plot_spatial_rp=True,
         spatial_rp_path=(f'{eg_dir}/src1_enhanced-'

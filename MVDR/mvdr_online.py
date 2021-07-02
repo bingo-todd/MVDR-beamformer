@@ -11,7 +11,8 @@ class MVDR:
     """
     """
     def __init__(self, mic_dist, frame_len, frame_shift, fs, c=343,
-                 delay_dict_path=None, decay_coef=1, alpha=1e-6):
+                 delay_dict_path=None, steer_vector_dict_path=None,
+                 decay_coef=1, alpha=1e-6):
         """
         Args:
             mic_dist: distances between adjcent mics, in shape of [n_mic],
@@ -44,6 +45,12 @@ class MVDR:
                 delay_dict = pickle.load(f)
         self.delay_dict = delay_dict
 
+        steer_vector_dict = None
+        if steer_vector_dict_path is not None:
+            with open(steer_vector_dict_path, 'rb') as f:
+                steer_vector_dict = pickle.load(f)
+        self.steer_vector_dict = steer_vector_dict
+
         self.frames_enhanced = []
 
         self.c = c  # sound seed
@@ -71,19 +78,22 @@ class MVDR:
     def cal_steer_vector(self, azi):
         """
         """
-        # time delays
-        delays = self.cal_delays(azi)
-        # phase delays, in shape of [n_freq_bin, n_mic]
-        phase_delays =\
-            np.exp(1j*self.angular_freq_valid[:, np.newaxis]
-                   * delays[np.newaxis, :])
-        # amplitude normalization
-        steer_vector = \
-            (phase_delays
-             / np.sqrt(
-                 np.sum(
-                     phase_delays*np.conj(phase_delays), axis=1,
-                     keepdims=True)))
+        if self.steer_vector_dict is not None:
+            steer_vector = self.steer_vector_dict[f'{azi}']
+        else:
+            # time delays
+            delays = self.cal_delays(azi)
+            # phase delays, in shape of [n_freq_bin, n_mic]
+            phase_delays =\
+                np.exp(1j*self.angular_freq_valid[:, np.newaxis]
+                       * delays[np.newaxis, :])
+            # amplitude normalization
+            steer_vector = \
+                (phase_delays
+                 / np.sqrt(
+                     np.sum(
+                         phase_delays*np.conj(phase_delays), axis=1,
+                         keepdims=True)))
         return steer_vector
 
     def cal_correlation_matrix(self, x_stft):
